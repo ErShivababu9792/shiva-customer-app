@@ -1,0 +1,9 @@
+{
+  "appId": "com.shivabuildmart.app",
+  "appName": "Shiva Build Mart",
+  "webDir": "dist",
+  "server": {
+    "url": "https://shiva-customer-app.vercel.app/",
+    "cleartext": false
+  }
+}

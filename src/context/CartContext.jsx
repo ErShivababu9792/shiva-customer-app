@@ -26,17 +26,17 @@ export const CartProvider = ({ children }) => {
   }, [refresh]);
 
   const addItem = async (productId, variantId, quantity = 1) => {
-    const { data } = await api.post("/cart", { productId, variantId, quantity });
+    const { data } = await api.post("/cart/items", { productId, variantId, quantity });
     setCart(data.cart);
   };
 
   const updateItem = async (itemId, quantity) => {
-    const { data } = await api.put(`/cart/${itemId}`, { quantity });
+    const { data } = await api.put(`/cart/items/${itemId}`, { quantity });
     setCart(data.cart);
   };
 
   const removeItem = async (itemId) => {
-    const { data } = await api.delete(`/cart/${itemId}`);
+    const { data } = await api.delete(`/cart/items/${itemId}`);
     setCart(data.cart);
   };
 

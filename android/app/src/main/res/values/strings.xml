@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Shiva Build Mart</string>
+    <string name="title_activity_main">Shiva Build Mart</string>
+    <string name="package_name">com.shivabuildmart.app</string>
+    <string name="custom_url_scheme">com.shivabuildmart.app</string>
+</resources>
