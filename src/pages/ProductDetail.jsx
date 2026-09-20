@@ -37,10 +37,20 @@ const ProductDetail = () => {
   const [reviews, setReviews] = useState([]);
   const [showAddedModal, setShowAddedModal] = useState(false);
   const [suggestions, setSuggestions] = useState([]);
+  const [relatedProducts, setRelatedProducts] = useState([]);
 
   useEffect(() => {
     api.get(`/products/${slug}`).then(({ data }) => setProduct(data.product));
   }, [slug]);
+
+  useEffect(() => {
+    if (product?._id) {
+      api
+        .get("/products", { params: { category: product.category, limit: 8 } })
+        .then(({ data }) => setRelatedProducts(data.products.filter((p) => p._id !== product._id).slice(0, 6)))
+        .catch(() => {});
+    }
+  }, [product?._id, product?.category]);
 
   useEffect(() => {
     if (product?._id) {
@@ -196,6 +206,18 @@ const ProductDetail = () => {
           </AccordionSection>
         </div>
       </div>
+
+      {/* Related products */}
+      {relatedProducts.length > 0 && (
+        <div className="mt-8 px-5">
+          <h2 className="font-display text-lg text-espresso mb-3">You May Also Like</h2>
+          <div className="grid grid-cols-2 gap-4">
+            {relatedProducts.map((p) => (
+              <ProductCard key={p._id} product={p} />
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Sticky bottom actions */}
       <div className="fixed bottom-0 left-0 right-0 bg-ivory border-t border-sand px-5 py-3 flex items-center gap-3 safe-bottom">
