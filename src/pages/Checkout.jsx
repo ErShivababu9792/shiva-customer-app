@@ -141,21 +141,50 @@ const Checkout = () => {
           <h2 className="font-display text-2xl text-espresso">Order Placed!</h2>
           <p className="text-taupe text-sm mt-1 text-center">Thank you for shopping with Shiva Build Mart</p>
 
-          <div className="bg-white rounded-2xl p-4 w-full mt-6 space-y-3">
-            <div className="flex justify-between text-sm">
-              <span className="text-taupe">Order ID</span>
-              <span className="text-espresso font-medium">#{placedOrder._id.slice(-8).toUpperCase()}</span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-taupe">Total</span>
-              <span className="text-espresso font-medium">{formatPrice(placedOrder.grandTotal)}</span>
-            </div>
-            <div className="pt-2 border-t border-sand">
-              <p className="text-taupe text-xs mb-1">Delivery Address</p>
-              <p className="text-espresso text-sm">
+          {/* Receipt-style summary, like a printed slip */}
+          <div className="w-full max-w-[340px] mt-6">
+            <div className="bg-white rounded-t-lg p-5 font-mono text-[13px] text-espresso">
+              <p className="text-center font-semibold text-sm tracking-wide">SHIVA BUILD MART</p>
+              <p className="text-center text-taupe text-[11px] mb-3">Order Receipt</p>
+              <div className="border-t border-dashed border-taupe/40 my-3" />
+
+              <div className="flex justify-between"><span>Order ID</span><span>#{placedOrder._id.slice(-8).toUpperCase()}</span></div>
+              <div className="flex justify-between"><span>Date</span><span>{new Date(placedOrder.createdAt || Date.now()).toLocaleDateString("en-IN")}</span></div>
+              <div className="flex justify-between"><span>Payment</span><span className="uppercase">{placedOrder.paymentMethod}</span></div>
+
+              <div className="border-t border-dashed border-taupe/40 my-3" />
+
+              {placedOrder.items?.map((item, i) => (
+                <div key={i} className="flex justify-between gap-2 mb-1">
+                  <span className="flex-1 truncate">{item.name} x{item.quantity}</span>
+                  <span>{formatPrice(item.price * item.quantity)}</span>
+                </div>
+              ))}
+
+              <div className="border-t border-dashed border-taupe/40 my-3" />
+
+              <div className="flex justify-between font-semibold text-sm">
+                <span>TOTAL</span>
+                <span>{formatPrice(placedOrder.grandTotal)}</span>
+              </div>
+
+              <div className="border-t border-dashed border-taupe/40 my-3" />
+
+              <p className="text-[11px] text-taupe">Deliver to:</p>
+              <p className="text-[11px]">
                 {placedOrder.shippingAddress.fullName}, {placedOrder.shippingAddress.line1}, {placedOrder.shippingAddress.city}
               </p>
+              <p className="text-center text-[10px] text-taupe mt-4">*** Thank you for your order ***</p>
             </div>
+            {/* Zigzag torn-paper edge */}
+            <div
+              className="h-4 w-full"
+              style={{
+                background:
+                  "linear-gradient(-45deg, transparent 8px, #fff 8px) 0 0/16px 100%, linear-gradient(45deg, transparent 8px, #fff 8px) 0 0/16px 100%",
+                backgroundColor: "transparent",
+              }}
+            />
           </div>
 
           <button
