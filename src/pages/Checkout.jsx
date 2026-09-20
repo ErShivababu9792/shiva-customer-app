@@ -6,6 +6,8 @@ import { useCart } from "../context/CartContext.jsx";
 import AddressForm from "../components/AddressForm.jsx";
 
 const formatPrice = (n) => `₹${Number(n || 0).toLocaleString("en-IN")}`;
+const UPI_ID = import.meta.env.VITE_UPI_ID || "";
+const UPI_PAYEE_NAME = import.meta.env.VITE_UPI_PAYEE_NAME || "Shiva Build Mart";
 
 const StepIndicator = ({ current }) => {
   const steps = [
@@ -50,6 +52,7 @@ const Checkout = () => {
   const [placing, setPlacing] = useState(false);
   const [error, setError] = useState("");
   const [placedOrder, setPlacedOrder] = useState(null);
+  const [downloadingInvoice, setDownloadingInvoice] = useState(false);
 
   const items = cart.items || [];
   const subtotal = items.reduce((sum, item) => sum + item.priceAtAdd * item.quantity, 0);
@@ -87,7 +90,7 @@ const Checkout = () => {
       if (paymentMethod === "razorpay") {
         const { data } = await api.post("/payments/razorpay/create-order");
         if (!window.Razorpay) {
-          setError("Payment widget failed to load.");
+          setError("Payment widget failed to load. If you're in the app, try 'Pay with UPI' or 'Cash on Delivery' instead.");
           setPlacing(false);
           return;
         }
@@ -127,6 +130,30 @@ const Checkout = () => {
     }
   };
 
+  const handleDownloadInvoice = async () => {
+    setDownloadingInvoice(true);
+    try {
+      const response = await api.get(`/orders/${placedOrder._id}/invoice`, { responseType: "blob" });
+      const blobUrl = window.URL.createObjectURL(new Blob([response.data], { type: "application/pdf" }));
+      const link = document.createElement("a");
+      link.href = blobUrl;
+      link.download = `Invoice-${placedOrder._id.slice(-8).toUpperCase()}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setTimeout(() => window.URL.revokeObjectURL(blobUrl), 5000);
+    } catch (err) {
+      setError("Could not download invoice. Please try again from My Orders.");
+    } finally {
+      setDownloadingInvoice(false);
+    }
+  };
+
+  const upiLink = `upi://pay?pa=${encodeURIComponent(UPI_ID)}&pn=${encodeURIComponent(
+    UPI_PAYEE_NAME
+  )}&am=${subtotal.toFixed(2)}&cu=INR&tn=${encodeURIComponent("Shiva Build Mart order")}`;
+  const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(upiLink)}`;
+
   if (step === "confirm" && placedOrder) {
     return (
       <div className="min-h-screen bg-ivory safe-top flex flex-col">
@@ -134,14 +161,13 @@ const Checkout = () => {
           <h1 className="font-display text-xl text-espresso">Order Confirmed</h1>
         </div>
         <StepIndicator current="confirm" />
-        <div className="flex-1 flex flex-col items-center px-6 pt-6">
+        <div className="flex-1 flex flex-col items-center px-6 pt-6 pb-10">
           <div className="w-20 h-20 rounded-full bg-green-100 flex items-center justify-center mb-5">
             <Check size={36} className="text-green-700" strokeWidth={2.5} />
           </div>
           <h2 className="font-display text-2xl text-espresso">Order Placed!</h2>
           <p className="text-taupe text-sm mt-1 text-center">Thank you for shopping with Shiva Build Mart</p>
 
-          {/* Receipt-style summary, like a printed slip */}
           <div className="w-full max-w-[340px] mt-6">
             <div className="bg-white rounded-t-lg p-5 font-mono text-[13px] text-espresso">
               <p className="text-center font-semibold text-sm tracking-wide">SHIVA BUILD MART</p>
@@ -163,6 +189,19 @@ const Checkout = () => {
 
               <div className="border-t border-dashed border-taupe/40 my-3" />
 
+              <div className="flex justify-between"><span>Taxable Value</span><span>{formatPrice(placedOrder.itemsTotal)}</span></div>
+              {placedOrder.totalCGST > 0 && (
+                <>
+                  <div className="flex justify-between"><span>CGST</span><span>{formatPrice(placedOrder.totalCGST)}</span></div>
+                  <div className="flex justify-between"><span>SGST</span><span>{formatPrice(placedOrder.totalSGST)}</span></div>
+                </>
+              )}
+              {placedOrder.totalIGST > 0 && (
+                <div className="flex justify-between"><span>IGST</span><span>{formatPrice(placedOrder.totalIGST)}</span></div>
+              )}
+
+              <div className="border-t border-dashed border-taupe/40 my-3" />
+
               <div className="flex justify-between font-semibold text-sm">
                 <span>TOTAL</span>
                 <span>{formatPrice(placedOrder.grandTotal)}</span>
@@ -176,7 +215,6 @@ const Checkout = () => {
               </p>
               <p className="text-center text-[10px] text-taupe mt-4">*** Thank you for your order ***</p>
             </div>
-            {/* Zigzag torn-paper edge */}
             <div
               className="h-4 w-full"
               style={{
@@ -187,13 +225,22 @@ const Checkout = () => {
             />
           </div>
 
+          {error && <p className="text-red-700 text-sm mt-3 text-center">{error}</p>}
+
+          <button
+            onClick={handleDownloadInvoice}
+            disabled={downloadingInvoice}
+            className="w-full max-w-[340px] border border-espresso text-espresso font-medium rounded-xl py-3 text-sm mt-6 disabled:opacity-50"
+          >
+            {downloadingInvoice ? "Preparing…" : "Download GST Invoice"}
+          </button>
           <button
             onClick={() => navigate(`/orders/${placedOrder._id}`)}
-            className="w-full bg-espresso text-ivory font-medium rounded-xl py-3.5 text-sm mt-6"
+            className="w-full max-w-[340px] bg-espresso text-ivory font-medium rounded-xl py-3.5 text-sm mt-3"
           >
             View Order Details
           </button>
-          <button onClick={() => navigate("/")} className="w-full text-espresso font-medium text-sm mt-3 py-2">
+          <button onClick={() => navigate("/")} className="w-full max-w-[340px] text-espresso font-medium text-sm mt-3 py-2">
             Continue Shopping
           </button>
         </div>
@@ -268,14 +315,15 @@ const Checkout = () => {
         <div className="px-5 mt-2 space-y-3">
           <p className="text-espresso font-medium text-[15px] mb-1">Payment Method</p>
           {[
-            { key: "razorpay", label: "Pay Online", sub: "Card, UPI, Netbanking, Wallets" },
-            { key: "upi", label: "UPI / QR", sub: "Pay using any UPI app" },
+            { key: "razorpay", label: "Pay Online", sub: "Card, Netbanking, Wallets" },
+            { key: "upi", label: "UPI / QR", sub: "Scan and pay with any UPI app", disabled: !UPI_ID },
             { key: "cod", label: "Cash on Delivery", sub: "Pay at your doorstep" },
           ].map((method) => (
             <button
               key={method.key}
-              onClick={() => setPaymentMethod(method.key)}
-              className={`w-full flex items-center justify-between bg-white rounded-2xl p-4 border-2 ${
+              onClick={() => !method.disabled && setPaymentMethod(method.key)}
+              disabled={method.disabled}
+              className={`w-full flex items-center justify-between bg-white rounded-2xl p-4 border-2 disabled:opacity-40 ${
                 paymentMethod === method.key ? "border-clay" : "border-transparent"
               }`}
             >
@@ -286,6 +334,18 @@ const Checkout = () => {
               <div className={`w-5 h-5 rounded-full border-2 ${paymentMethod === method.key ? "border-clay bg-clay" : "border-sand"}`} />
             </button>
           ))}
+
+          {paymentMethod === "upi" && UPI_ID && (
+            <div className="bg-white rounded-2xl p-5 flex flex-col items-center text-center">
+              <img src={qrImageUrl} alt="UPI QR code" className="w-44 h-44" />
+              <p className="text-espresso text-sm mt-3">Scan to pay {formatPrice(subtotal)}</p>
+              <p className="text-taupe text-xs mt-1">UPI ID: {UPI_ID}</p>
+              <p className="text-taupe text-xs mt-3 max-w-xs">
+                After paying, tap "Place Order" below. We'll confirm your payment and update your order status
+                in My Orders.
+              </p>
+            </div>
+          )}
 
           {error && <p className="text-red-700 text-sm">{error}</p>}
 
@@ -299,7 +359,7 @@ const Checkout = () => {
               disabled={placing}
               className="bg-clay text-ivory font-medium rounded-xl px-6 py-3 text-sm disabled:opacity-50"
             >
-              {placing ? "Placing…" : "Place Order"}
+              {placing ? "Placing…" : paymentMethod === "upi" ? "I've Paid — Place Order" : "Place Order"}
             </button>
           </div>
         </div>
