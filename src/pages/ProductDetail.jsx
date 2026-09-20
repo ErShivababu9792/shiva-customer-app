@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ChevronLeft, Heart, ChevronDown, ChevronUp } from "lucide-react";
+import { ChevronLeft, Heart, ChevronDown, ChevronUp, CheckCircle2, X } from "lucide-react";
 import api from "../api/axios.js";
 import { cldResize } from "../utils/image.js";
 import StarRating from "../components/StarRating.jsx";
+import ProductCard from "../components/ProductCard.jsx";
 import { useAuth } from "../context/AuthContext.jsx";
 import { useCart } from "../context/CartContext.jsx";
 import { useWishlist } from "../context/WishlistContext.jsx";
@@ -34,6 +35,8 @@ const ProductDetail = () => {
   const [adding, setAdding] = useState(false);
   const [openSection, setOpenSection] = useState("description");
   const [reviews, setReviews] = useState([]);
+  const [showAddedModal, setShowAddedModal] = useState(false);
+  const [suggestions, setSuggestions] = useState([]);
 
   useEffect(() => {
     api.get(`/products/${slug}`).then(({ data }) => setProduct(data.product));
@@ -57,6 +60,12 @@ const ProductDetail = () => {
     setAdding(true);
     try {
       await addItem(product._id, selectedVariantId, quantity);
+      // Fetch a few related products (same category, excluding this one) to
+      // suggest right after adding — same pattern as Amazon/Flipkart's
+      // "added to cart" panel.
+      const { data } = await api.get("/products", { params: { category: product.category, limit: 6 } });
+      setSuggestions(data.products.filter((p) => p._id !== product._id).slice(0, 4));
+      setShowAddedModal(true);
     } finally {
       setAdding(false);
     }
@@ -210,6 +219,50 @@ const ProductDetail = () => {
           {product.stock === 0 ? "Out of Stock" : "Buy Now"}
         </button>
       </div>
+
+      {/* Added-to-cart bottom sheet with related suggestions */}
+      {showAddedModal && (
+        <div className="fixed inset-0 z-50 flex items-end">
+          <div className="absolute inset-0 bg-ink/40" onClick={() => setShowAddedModal(false)} />
+          <div className="relative w-full bg-ivory rounded-t-3xl max-h-[80vh] overflow-y-auto safe-bottom">
+            <div className="flex items-center justify-between px-5 pt-5 pb-2">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 size={20} className="text-green-600" />
+                <p className="font-display text-lg text-espresso">Added to Cart</p>
+              </div>
+              <button onClick={() => setShowAddedModal(false)}>
+                <X size={20} className="text-taupe" />
+              </button>
+            </div>
+
+            {suggestions.length > 0 && (
+              <div className="px-5 pb-3">
+                <p className="text-taupe text-sm mb-3">You might also like</p>
+                <div className="grid grid-cols-2 gap-4">
+                  {suggestions.map((p) => (
+                    <ProductCard key={p._id} product={p} />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="px-5 py-4 flex gap-3 border-t border-sand mt-2">
+              <button
+                onClick={() => setShowAddedModal(false)}
+                className="flex-1 border border-espresso text-espresso font-medium rounded-xl py-3 text-sm"
+              >
+                Continue Shopping
+              </button>
+              <button
+                onClick={() => navigate("/cart")}
+                className="flex-1 bg-espresso text-ivory font-medium rounded-xl py-3 text-sm"
+              >
+                View Cart
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
