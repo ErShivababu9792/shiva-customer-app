@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { MapPin } from "lucide-react";
 
-const emptyAddress = { label: "Home", fullName: "", phone: "", line1: "", line2: "", landmark: "", city: "", state: "", pincode: "" };
+const emptyAddress = { label: "Home", fullName: "", phone: "", line1: "", line2: "", landmark: "", city: "", state: "", pincode: "", lat: null, lng: null };
 
 const inputClass = "w-full border border-sand bg-white rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-clay";
 
@@ -46,6 +46,8 @@ const AddressForm = ({ initialValues, onSave, onCancel, saving }) => {
             city: addr.city || addr.town || addr.village || prev.city,
             state: addr.state || prev.state,
             pincode: addr.postcode || prev.pincode,
+            lat: latitude,
+            lng: longitude,
           }));
         } finally {
           setLocating(false);
@@ -63,8 +65,13 @@ const AddressForm = ({ initialValues, onSave, onCancel, saving }) => {
   return (
     <form onSubmit={handleSubmit} className="space-y-3">
       <button type="button" onClick={handleUseLocation} disabled={locating} className="flex items-center gap-2 text-sm text-clay font-medium">
-        <MapPin size={15} /> {locating ? "Detecting…" : "Use current location"}
+        <MapPin size={15} /> {locating ? "Detecting…" : form.lat ? "Location pinned ✓ — tap to re-detect" : "Use current location"}
       </button>
+      {!form.lat && (
+        <p className="text-xs text-clay -mt-1">
+          Tip: tap "Use current location" so we can confirm delivery to this exact address.
+        </p>
+      )}
       <input required placeholder="Full name" value={form.fullName} onChange={(e) => setForm({ ...form, fullName: e.target.value })} className={inputClass} />
       <input required placeholder="Phone number" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} className={inputClass} />
       <input required placeholder="Address line 1" value={form.line1} onChange={(e) => setForm({ ...form, line1: e.target.value })} className={inputClass} />

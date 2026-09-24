@@ -1,7 +1,9 @@
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Package, MapPin, CreditCard, Heart, HelpCircle, Info, Settings, ChevronRight, User } from "lucide-react";
+import { Package, MapPin, CreditCard, Heart, HelpCircle, Info, Settings, ChevronRight, User, Sparkles } from "lucide-react";
 import { useAuth } from "../context/AuthContext.jsx";
 import Layout from "../components/Layout.jsx";
+import api from "../api/axios.js";
 
 const menuItems = [
   { icon: Package, label: "My Orders", path: "/orders" },
@@ -16,6 +18,12 @@ const menuItems = [
 const Profile = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [loyaltyBalance, setLoyaltyBalance] = useState(null);
+
+  useEffect(() => {
+    if (!user) return;
+    api.get("/auth/loyalty").then(({ data }) => setLoyaltyBalance(data.balance)).catch(() => {});
+  }, [user]);
 
   if (!user) {
     return (
@@ -45,6 +53,20 @@ const Profile = () => {
         </div>
         <button onClick={() => navigate("/settings")}><Settings size={20} className="text-taupe" /></button>
       </div>
+
+      {loyaltyBalance !== null && (
+        <div className="px-4 mt-4">
+          <div className="bg-espresso rounded-2xl px-5 py-4 flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <Sparkles size={20} className="text-clay" />
+              <div>
+                <p className="text-ivory/70 text-xs">Reward Points</p>
+                <p className="text-ivory font-display text-xl">{loyaltyBalance}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="px-4 mt-4">
         <div className="bg-white rounded-2xl divide-y divide-sand">

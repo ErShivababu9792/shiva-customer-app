@@ -1,10 +1,9 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ChevronLeft, Heart, ChevronDown, ChevronUp, CheckCircle2, X } from "lucide-react";
+import { ChevronLeft, Heart, ChevronDown, ChevronUp, X, ChevronRight as ChevronRightIcon, Bell } from "lucide-react";
 import api from "../api/axios.js";
 import { cldResize } from "../utils/image.js";
 import StarRating from "../components/StarRating.jsx";
-import ProductCard from "../components/ProductCard.jsx";
 import { useAuth } from "../context/AuthContext.jsx";
 import { useCart } from "../context/CartContext.jsx";
 import { useWishlist } from "../context/WishlistContext.jsx";
@@ -35,22 +34,14 @@ const ProductDetail = () => {
   const [adding, setAdding] = useState(false);
   const [openSection, setOpenSection] = useState("description");
   const [reviews, setReviews] = useState([]);
-  const [showAddedModal, setShowAddedModal] = useState(false);
-  const [suggestions, setSuggestions] = useState([]);
-  const [relatedProducts, setRelatedProducts] = useState([]);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [notifyEmail, setNotifyEmail] = useState("");
+  const [notifying, setNotifying] = useState(false);
+  const [notifySuccess, setNotifySuccess] = useState("");
 
   useEffect(() => {
     api.get(`/products/${slug}`).then(({ data }) => setProduct(data.product));
   }, [slug]);
-
-  useEffect(() => {
-    if (product?._id) {
-      api
-        .get("/products", { params: { category: product.category, limit: 8 } })
-        .then(({ data }) => setRelatedProducts(data.products.filter((p) => p._id !== product._id).slice(0, 6)))
-        .catch(() => {});
-    }
-  }, [product?._id, product?.category]);
 
   useEffect(() => {
     if (product?._id) {
@@ -70,12 +61,6 @@ const ProductDetail = () => {
     setAdding(true);
     try {
       await addItem(product._id, selectedVariantId, quantity);
-      // Fetch a few related products (same category, excluding this one) to
-      // suggest right after adding — same pattern as Amazon/Flipkart's
-      // "added to cart" panel.
-      const { data } = await api.get("/products", { params: { category: product.category, limit: 6 } });
-      setSuggestions(data.products.filter((p) => p._id !== product._id).slice(0, 4));
-      setShowAddedModal(true);
     } finally {
       setAdding(false);
     }
@@ -93,6 +78,19 @@ const ProductDetail = () => {
   };
 
   const toggleSection = (key) => setOpenSection(openSection === key ? "" : key);
+
+  const handleNotifyMe = async (e) => {
+    e.preventDefault();
+    setNotifying(true);
+    try {
+      const { data } = await api.post(`/products/${product._id}/notify-me`, { email: notifyEmail });
+      setNotifySuccess(data.message);
+    } catch (err) {
+      setNotifySuccess("");
+    } finally {
+      setNotifying(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-ivory pb-28 safe-top">
@@ -112,7 +110,7 @@ const ProductDetail = () => {
 
       {/* Image */}
       <div className="px-5 mt-3">
-        <div className="aspect-square bg-sand rounded-3xl overflow-hidden relative">
+        <div className="aspect-square bg-sand rounded-3xl overflow-hidden relative" onClick={() => setLightboxOpen(true)}>
           {product.images?.[activeImage]?.url && (
             <img src={cldResize(product.images[activeImage].url, 800)} alt={product.name} className="w-full h-full object-cover" />
           )}
@@ -136,6 +134,42 @@ const ProductDetail = () => {
           </div>
         )}
       </div>
+
+      {lightboxOpen && (
+        <div className="fixed inset-0 z-50 bg-ink/95 flex items-center justify-center" onClick={() => setLightboxOpen(false)}>
+          <button onClick={() => setLightboxOpen(false)} className="absolute top-5 right-5 text-ivory z-10">
+            <X size={26} />
+          </button>
+          {product.images?.length > 1 && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setActiveImage((prev) => (prev === 0 ? product.images.length - 1 : prev - 1));
+              }}
+              className="absolute left-3 text-ivory bg-ivory/10 rounded-full p-2 z-10"
+            >
+              <ChevronLeft size={24} />
+            </button>
+          )}
+          <img
+            src={cldResize(product.images[activeImage].url, 1200)}
+            alt={product.name}
+            className="max-w-[92vw] max-h-[85vh] object-contain"
+            onClick={(e) => e.stopPropagation()}
+          />
+          {product.images?.length > 1 && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setActiveImage((prev) => (prev === product.images.length - 1 ? 0 : prev + 1));
+              }}
+              className="absolute right-3 text-ivory bg-ivory/10 rounded-full p-2 z-10"
+            >
+              <ChevronRightIcon size={24} />
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Info */}
       <div className="px-5 mt-5">
@@ -207,14 +241,27 @@ const ProductDetail = () => {
         </div>
       </div>
 
-      {/* Related products */}
-      {relatedProducts.length > 0 && (
-        <div className="mt-8 px-5">
-          <h2 className="font-display text-lg text-espresso mb-3">You May Also Like</h2>
-          <div className="grid grid-cols-2 gap-4">
-            {relatedProducts.map((p) => (
-              <ProductCard key={p._id} product={p} />
-            ))}
+      {product.stock === 0 && (
+        <div className="px-5 mt-4">
+          <div className="bg-white rounded-2xl p-4 border border-sand">
+            {notifySuccess ? (
+              <p className="text-sm text-green-700">{notifySuccess}</p>
+            ) : (
+              <form onSubmit={handleNotifyMe} className="flex gap-2">
+                <input
+                  type="email"
+                  required
+                  placeholder="Your email"
+                  value={notifyEmail}
+                  onChange={(e) => setNotifyEmail(e.target.value)}
+                  className="flex-1 border border-sand rounded-xl px-3 py-2.5 text-sm"
+                />
+                <button disabled={notifying} className="bg-espresso text-ivory rounded-xl px-4 py-2.5 text-sm font-medium disabled:opacity-50 flex items-center gap-1.5 whitespace-nowrap">
+                  <Bell size={14} /> {notifying ? "Saving…" : "Notify Me"}
+                </button>
+              </form>
+            )}
+            <p className="text-xs text-taupe mt-2">We'll email you the moment this is back in stock.</p>
           </div>
         </div>
       )}
@@ -241,50 +288,6 @@ const ProductDetail = () => {
           {product.stock === 0 ? "Out of Stock" : "Buy Now"}
         </button>
       </div>
-
-      {/* Added-to-cart bottom sheet with related suggestions */}
-      {showAddedModal && (
-        <div className="fixed inset-0 z-50 flex items-end">
-          <div className="absolute inset-0 bg-ink/40" onClick={() => setShowAddedModal(false)} />
-          <div className="relative w-full bg-ivory rounded-t-3xl max-h-[80vh] overflow-y-auto safe-bottom">
-            <div className="flex items-center justify-between px-5 pt-5 pb-2">
-              <div className="flex items-center gap-2">
-                <CheckCircle2 size={20} className="text-green-600" />
-                <p className="font-display text-lg text-espresso">Added to Cart</p>
-              </div>
-              <button onClick={() => setShowAddedModal(false)}>
-                <X size={20} className="text-taupe" />
-              </button>
-            </div>
-
-            {suggestions.length > 0 && (
-              <div className="px-5 pb-3">
-                <p className="text-taupe text-sm mb-3">You might also like</p>
-                <div className="grid grid-cols-2 gap-4">
-                  {suggestions.map((p) => (
-                    <ProductCard key={p._id} product={p} />
-                  ))}
-                </div>
-              </div>
-            )}
-
-            <div className="px-5 py-4 flex gap-3 border-t border-sand mt-2">
-              <button
-                onClick={() => setShowAddedModal(false)}
-                className="flex-1 border border-espresso text-espresso font-medium rounded-xl py-3 text-sm"
-              >
-                Continue Shopping
-              </button>
-              <button
-                onClick={() => navigate("/cart")}
-                className="flex-1 bg-espresso text-ivory font-medium rounded-xl py-3 text-sm"
-              >
-                View Cart
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
